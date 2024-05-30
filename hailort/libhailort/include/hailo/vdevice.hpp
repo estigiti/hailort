@@ -75,7 +75,17 @@ public:
      */
     virtual Expected<std::shared_ptr<InferModel>> create_infer_model(const std::string &hef_path,
         const std::string &network_name = "");
-
+        
+    /**
+     * Creates the infer model from an hef
+     *
+     * @param[in] hef_buffer                  A buffer that contains the Hef content.
+     * @param[in] network_name                A string of the network name (optional).
+     * @return Upon success, returns Expected of a shared pointer of infer model.
+     *         Otherwise, returns Unexpected of ::hailo_status error.
+     */
+    virtual Expected<std::shared_ptr<InferModel>> create_infer_model(const MemoryView &hef_buffer, 
+        const std::string &network_name = "");
     /**
      * Gets the underlying physical devices.
      * 

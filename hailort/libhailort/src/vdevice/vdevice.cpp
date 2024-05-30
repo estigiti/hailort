@@ -194,6 +194,16 @@ Expected<std::shared_ptr<InferModel>> VDeviceHandle::create_infer_model(const st
     return vdevice.value()->create_infer_model(hef_path, network_name);
 }
 
+Expected<std::shared_ptr<InferModel>> VDeviceHandle::create_infer_model(const MemoryView &hef_buffer,
+    const std::string &network_name)
+{
+    auto &manager = SharedResourceManager<std::string, VDeviceBase>::get_instance();
+    auto vdevice = manager.resource_lookup(m_handle);
+    CHECK_EXPECTED(vdevice);
+
+    return vdevice.value()->create_infer_model(hef_buffer, network_name);
+}
+
 hailo_status VDeviceHandle::dma_map(void *address, size_t size, hailo_dma_buffer_direction_t direction)
 {
     auto &manager = SharedResourceManager<std::string, VDeviceBase>::get_instance();
@@ -672,6 +682,45 @@ Expected<std::shared_ptr<InferModel>> VDevice::create_infer_model(const std::str
     CHECK_AS_EXPECTED(network_name.empty(), HAILO_NOT_IMPLEMENTED, "Passing network name is not supported yet!");
 
     auto hef_expected = Hef::create(hef_path);
+    CHECK_EXPECTED(hef_expected);
+    auto hef = hef_expected.release();
+
+    std::unordered_map<std::string, InferModel::InferStream> inputs;
+    std::unordered_map<std::string, InferModel::InferStream> outputs;
+
+    auto input_vstream_infos = hef.get_input_vstream_infos();
+    CHECK_EXPECTED(input_vstream_infos);
+
+    for (const auto &vstream_info : input_vstream_infos.value()) {
+        auto pimpl = make_shared_nothrow<InferModel::InferStream::Impl>(vstream_info);
+        CHECK_NOT_NULL_AS_EXPECTED(pimpl, HAILO_OUT_OF_HOST_MEMORY);
+
+        InferModel::InferStream stream(pimpl);
+        inputs.emplace(vstream_info.name, std::move(stream));
+    }
+
+    auto output_vstream_infos = hef.get_output_vstream_infos();
+    CHECK_EXPECTED(output_vstream_infos);
+
+    for (const auto &vstream_info : output_vstream_infos.value()) {
+        auto pimpl = make_shared_nothrow<InferModel::InferStream::Impl>(vstream_info);
+        CHECK_NOT_NULL_AS_EXPECTED(pimpl, HAILO_OUT_OF_HOST_MEMORY);
+
+        InferModel::InferStream stream(pimpl);
+        outputs.emplace(vstream_info.name, std::move(stream));
+    }
+
+    auto res = make_shared_nothrow<InferModel>(InferModel(*this, std::move(hef), std::move(inputs), std::move(outputs)));
+    CHECK_NOT_NULL_AS_EXPECTED(res, HAILO_OUT_OF_HOST_MEMORY);
+
+    return res;
+}
+
+Expected<std::shared_ptr<InferModel>> VDevice::create_infer_model(const MemoryView &hef_buffer, const std::string &network_name)
+{
+    CHECK_AS_EXPECTED(network_name.empty(), HAILO_NOT_IMPLEMENTED, "Passing network name is not supported yet!");
+
+    auto hef_expected = Hef::create(hef_buffer);
     CHECK_EXPECTED(hef_expected);
     auto hef = hef_expected.release();
 
