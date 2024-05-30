@@ -207,6 +207,8 @@ public:
     Expected<hailo_stream_interface_t> get_default_streams_interface() const override;
     Expected<std::shared_ptr<InferModel>> create_infer_model(const std::string &hef_path,
         const std::string &network_name = "") override;
+    Expected<std::shared_ptr<InferModel>> create_infer_model(const MemoryView &hef_buffer,
+        const std::string &network_name = "") override;
     virtual hailo_status dma_map(void *address, size_t size, hailo_dma_buffer_direction_t direction) override;
     virtual hailo_status dma_unmap(void *address, size_t size, hailo_dma_buffer_direction_t direction) override;
 
